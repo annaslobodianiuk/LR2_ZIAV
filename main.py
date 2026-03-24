@@ -222,15 +222,28 @@ def draw_selected_blocks(gray_cropped, block_size, indices, colors_rgb):
     return img
 
 
+def add_subplot_caption(ax, text):
+    ax.text(
+        0.5, -0.18,
+        text,
+        transform=ax.transAxes,
+        ha="center",
+        va="top",
+        fontsize=10
+    )
+
+
 def plot_metric_slide(gray_cropped, blocks, metric_map, metric_name_ua, metric_name_key, block_size):
     """
     Один великий слайд-вивід:
     1) preview з min/mid/max блоками
     2) histogram
     3) heatmap
-    4) min/mid/max фрагменти
-    5) карта класів
-    6) overlay на зображення
+    4) min block
+    5) mid block
+    6) max block
+    7) class map
+    8) overlay
     """
     t1, t2 = get_thresholds(metric_map, metric_name_key, block_size)
     class_map = classify_map(metric_map, t1, t2)
@@ -253,54 +266,71 @@ def plot_metric_slide(gray_cropped, blocks, metric_map, metric_name_ua, metric_n
 
     overlay = overlay_classification_on_image(gray_cropped, class_map, block_size)
 
-    plt.figure(figsize=(16, 9))
+    fig, axes = plt.subplots(2, 4, figsize=(18, 9))
+    fig.suptitle(f"Класифікація сегментів ({block_size}x{block_size}) за {metric_name_ua}", fontsize=18)
 
     # 1. Preview
-    plt.subplot(2, 3, 1)
-    plt.imshow(preview, cmap="gray")
-    plt.title(f"Класифікація сегментів ({block_size}x{block_size}) за {metric_name_ua}")
-    plt.axis("off")
+    ax = axes[0, 0]
+    ax.imshow(preview, cmap="gray")
+    ax.set_title("Класифікація сегментів")
+    ax.axis("off")
+    add_subplot_caption(ax, "Рис. 1. Виділені мінімальний, середній та максимальний сегменти")
 
     # 2. Histogram
-    plt.subplot(2, 3, 2)
+    ax = axes[0, 1]
     flat = metric_map.flatten()
-    plt.hist(flat, bins=30, color="purple", alpha=0.85)
-    plt.axvline(t1, color="green", linestyle="--", label=f"Поріг 1 = {t1:.3f}")
-    plt.axvline(t2, color="orange", linestyle="--", label=f"Поріг 2 = {t2:.3f}")
-    plt.title(f"Розподіл {metric_name_ua}")
-    plt.xlabel("Значення")
-    plt.ylabel("Кількість")
-    plt.legend()
+    ax.hist(flat, bins=30, color="purple", alpha=0.85)
+    ax.axvline(t1, color="green", linestyle="--", label=f"Поріг 1 = {t1:.3f}")
+    ax.axvline(t2, color="orange", linestyle="--", label=f"Поріг 2 = {t2:.3f}")
+    ax.set_title("Розподіл значень")
+    ax.set_xlabel("Значення")
+    ax.set_ylabel("Кількість")
+    ax.legend()
+    add_subplot_caption(ax, "Рис. 2. Гістограма розподілу значень метрики")
 
     # 3. Heatmap
-    plt.subplot(2, 3, 3)
-    plt.imshow(metric_map, cmap="inferno")
-    plt.colorbar()
-    plt.title(f"Теплова карта {metric_name_ua}")
+    ax = axes[0, 2]
+    im = ax.imshow(metric_map, cmap="inferno")
+    ax.set_title("Теплова карта")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    add_subplot_caption(ax, "Рис. 3. Теплова карта значень метрики")
 
-    # 4. Min / Mid / Max blocks
-    plt.subplot(2, 3, 4)
-    canvas = np.ones((block_size + 20, block_size * 3 + 40), dtype=np.uint8) * 255
-    canvas[10:10 + block_size, 10:10 + block_size] = min_block
-    canvas[10:10 + block_size, 20 + block_size:20 + 2 * block_size] = mid_block
-    canvas[10:10 + block_size, 30 + 2 * block_size:30 + 3 * block_size] = max_block
-    plt.imshow(canvas, cmap="gray")
-    plt.title(f"Min={min_val:.3f}   Mid={mid_val:.3f}   Max={max_val:.3f}")
-    plt.axis("off")
+    # 4. Classification map
+    ax = axes[0, 3]
+    ax.imshow(class_map, cmap=CLASS_CMAP, vmin=0, vmax=2)
+    ax.set_title("Карта класифікації")
+    ax.axis("off")
+    add_subplot_caption(ax, "Рис. 4. Сегменти, класифіковані на малі, середні та великі")
 
-    # 5. Classification map
-    plt.subplot(2, 3, 5)
-    plt.imshow(class_map, cmap=CLASS_CMAP, vmin=0, vmax=2)
-    plt.title(f"Сегменти класифіковані за {metric_name_ua}")
-    plt.axis("off")
+    # 5. Min block
+    ax = axes[1, 0]
+    ax.imshow(min_block, cmap="gray")
+    ax.set_title(f"Min = {min_val:.3f}")
+    ax.axis("off")
+    add_subplot_caption(ax, "Рис. 5. Сегмент з мінімальним значенням метрики")
 
-    # 6. Overlay
-    plt.subplot(2, 3, 6)
-    plt.imshow(overlay)
-    plt.title("Накладання класифікації на зображення")
-    plt.axis("off")
+    # 6. Mid block
+    ax = axes[1, 1]
+    ax.imshow(mid_block, cmap="gray")
+    ax.set_title(f"Mid = {mid_val:.3f}")
+    ax.axis("off")
+    add_subplot_caption(ax, "Рис. 6. Сегмент із середнім значенням метрики")
 
-    plt.tight_layout()
+    # 7. Max block
+    ax = axes[1, 2]
+    ax.imshow(max_block, cmap="gray")
+    ax.set_title(f"Max = {max_val:.3f}")
+    ax.axis("off")
+    add_subplot_caption(ax, "Рис. 7. Сегмент із максимальним значенням метрики")
+
+    # 8. Overlay
+    ax = axes[1, 3]
+    ax.imshow(overlay)
+    ax.set_title("Накладання класифікації")
+    ax.axis("off")
+    add_subplot_caption(ax, "Рис. 8. Накладання результатів класифікації на зображення")
+
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
     plt.show()
 
 
