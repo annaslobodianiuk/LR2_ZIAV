@@ -65,6 +65,29 @@ def calculate_normalized_correlation(img1, img2):
 
     return numerator / denominator
 
+def calculate_mse_rmse(img1, img2):
+    """
+    Крок 5: Розраховує середньоквадратичну помилку (MSE) та
+    середньоквадратичне відхилення (RMSE).
+    """
+    # Переводимо у float для уникнення переповнення при зведенні в квадрат
+    err = np.sum((img1.astype(np.float64) - img2.astype(np.float64)) ** 2)
+    err /= float(img1.shape[0] * img1.shape[1])
+    rmse = np.sqrt(err)
+    return err, rmse
+
+def calculate_psnr(img1, img2):
+    """
+    Крок 6: Розраховує пікове відношення сигналу до шуму (PSNR).
+    """
+    mse, _ = calculate_mse_rmse(img1, img2)
+    # Якщо зображення ідентичні (MSE = 0), PSNR прямує до нескінченності
+    if mse == 0:
+        return float('inf')
+    max_pixel = 255.0
+    psnr = 10 * np.log10((max_pixel ** 2) / mse)
+    return psnr
+
 image_path = "edited-image.jpg"
 
 img_gray = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -82,6 +105,18 @@ noisy_img = add_salt_and_pepper_noise(img_gray, salt_p, pepper_p)
 # 2. Розраховуємо та виводимо коефіцієнт нормованої кореляції
 ncc = calculate_normalized_correlation(img_gray, noisy_img)
 print(f"Коефіцієнт нормованої кореляції (NCC): {ncc:.4f}")
+mse, rmse = calculate_mse_rmse(img_gray, noisy_img)
+    
+print(f"Середньоквадратична помилка (MSE): {mse:.4f}")
+print(f"Середньоквадратичне відхилення (RMSE): {rmse:.4f}")
+
+# PSNR "до" накладання помилок (порівнюємо оригінал з оригіналом)
+psnr_before = calculate_psnr(img_gray, img_gray)
+print(f"PSNR «до» накладання помилок: {psnr_before}")
+
+# PSNR "після" накладання помилок (порівнюємо оригінал із зашумленим)
+psnr_after = calculate_psnr(img_gray, noisy_img)
+print(f"PSNR «після» накладання помилок: {psnr_after:.4f} дБ")
 
 # Збереження результату
 output_path = "noisy_output.jpg"
